@@ -129,7 +129,7 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Dashboard',
+      title: "Today's Performance",
       subtitle: 'Paper account • synced just now',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -137,8 +137,8 @@ class DashboardScreen extends StatelessWidget {
           const SafetyBanner(),
           const SizedBox(height: 16),
           const ResponsiveGrid(children: [
-            MetricCard(label: 'Equity', value: 'R184,205', detail: '+1.84%', accent: stoicGold),
-            MetricCard(label: 'Daily target', value: '10%', detail: 'R18,420 cap', accent: stoicBlue),
+            MetricCard(label: 'Daily profit', value: '+75.25%', detail: 'Target progress', accent: stoicGold),
+            MetricCard(label: 'Trades', value: '24', detail: 'Today', accent: stoicBlue),
             MetricCard(label: 'Win rate', value: '65%', detail: 'Last 20 trades', accent: stoicGold),
             MetricCard(label: 'Drawdown', value: '0.0%', detail: 'Healthy', accent: stoicBlue),
           ]),
@@ -177,7 +177,7 @@ class _TradingScreenState extends State<TradingScreen> {
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: 'Trading interface',
+      title: 'Scalping Mode Active',
       subtitle: 'Paper execution only',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -189,6 +189,12 @@ class _TradingScreenState extends State<TradingScreen> {
           ]),
           const SizedBox(height: 16),
           Panel(title: '$_symbol • SELL signal', child: SizedBox(height: 220, child: CandleChart())),
+          const SizedBox(height: 16),
+          const Panel(title: 'Open trades', child: Column(children: [
+            TradeRow(side: 'BUY', symbol: 'EUR/USD', profit: '+20.5 pips', volume: '1.25'),
+            TradeRow(side: 'SELL', symbol: 'GBP/USD', profit: '+15.8 pips', volume: '0.50'),
+            TradeRow(side: 'BUY', symbol: 'USD/JPY', profit: '+32.1 pips', volume: '1.00'),
+          ])),
           const SizedBox(height: 16),
           const ResponsiveGrid(children: [
             MetricCard(label: 'Conviction', value: '82/100', detail: 'High confidence', accent: stoicGold),
@@ -341,6 +347,34 @@ class StatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Row(children: [Expanded(child: Text(label, style: const TextStyle(color: stoicMuted))), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w700))]));
+  }
+}
+
+class TradeRow extends StatelessWidget {
+  final String side;
+  final String symbol;
+  final String profit;
+  final String volume;
+
+  const TradeRow({required this.side, required this.symbol, required this.profit, required this.volume, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isBuy = side == 'BUY';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(children: [
+        Icon(isBuy ? Icons.check_box : Icons.check_box_outline_blank, color: isBuy ? stoicBlue : stoicGold),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$side $volume $symbol', style: const TextStyle(fontWeight: FontWeight.w700)),
+          const Text('Scalp', style: TextStyle(color: stoicMuted, fontSize: 12)),
+        ])),
+        Text(profit, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w700)),
+        const SizedBox(width: 8),
+        const Icon(Icons.chevron_right, color: stoicMuted),
+      ]),
+    );
   }
 }
 
