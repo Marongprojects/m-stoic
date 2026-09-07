@@ -1,4 +1,4 @@
-# Marong Stoic Bot go-live checklist
+# M-STOIC go-live checklist
 
 The current Streamlit app is a paper-trading prototype. Do not connect live broker credentials, accept real deposits, or enable automated payouts until every applicable item below is complete and independently reviewed.
 

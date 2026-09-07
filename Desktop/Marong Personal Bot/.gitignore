@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+profiles.db
+*.db-shm
+*.db-wal
+.streamlit/secrets.toml
+.env
+.env.*
+backups/app_backup.py
+backups/app_backup.sha256
