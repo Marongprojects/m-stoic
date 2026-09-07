@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:fl_chart/fl_chart.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -7,6 +11,34 @@ const stoicGold = Color(0xFFFFD700);
 const stoicDark = Color(0xFF121212);
 const stoicPanel = Color(0xFF1B1D22);
 const stoicMuted = Color(0xFF9CA3AF);
+const marketPulseUrl = String.fromEnvironment('M_STOIC_API_URL');
+
+class MarketPulseService {
+  Future<MarketPulse> fetch() async {
+    if (marketPulseUrl.isEmpty) return MarketPulse.fallback();
+    final response = await http.get(Uri.parse('$marketPulseUrl/pulse')).timeout(const Duration(seconds: 5));
+    if (response.statusCode != 200) throw Exception('Market pulse unavailable');
+    return MarketPulse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+}
+
+class MarketPulse {
+  final String symbol;
+  final double price;
+  final double change;
+  final String status;
+
+  const MarketPulse({required this.symbol, required this.price, required this.change, required this.status});
+
+  factory MarketPulse.fromJson(Map<String, dynamic> json) => MarketPulse(
+        symbol: json['symbol'] as String? ?? 'XAUUSD',
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+        change: (json['change'] as num?)?.toDouble() ?? 0,
+        status: json['status'] as String? ?? 'Live',
+      );
+
+  factory MarketPulse.fallback() => const MarketPulse(symbol: 'XAUUSD', price: 2338.60, change: 0.84, status: 'Paper feed');
+}
 
 void main() {
   runApp(const MStoicApp());
@@ -123,14 +155,46 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  final _pulseService = MarketPulseService();
+  Timer? _timer;
+  MarketPulse _pulse = MarketPulse.fallback();
+  int _range = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPulse();
+    _timer = Timer.periodic(const Duration(seconds: 15), (_) => _refreshPulse());
+  }
+
+  Future<void> _refreshPulse() async {
+    try {
+      final pulse = await _pulseService.fetch();
+      if (mounted) setState(() => _pulse = pulse);
+    } catch (_) {
+      if (mounted) setState(() => _pulse = MarketPulse.fallback());
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppPage(
       title: "Today's Performance",
-      subtitle: 'Paper account • synced just now',
+      subtitle: 'Paper account • ${_pulse.status}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -139,15 +203,21 @@ class DashboardScreen extends StatelessWidget {
           const ResponsiveGrid(children: [
             MetricCard(label: 'Daily profit', value: '+75.25%', detail: 'Target progress', accent: stoicGold),
             MetricCard(label: 'Trades', value: '24', detail: 'Today', accent: stoicBlue),
-            MetricCard(label: 'Win rate', value: '65%', detail: 'Last 20 trades', accent: stoicGold),
-            MetricCard(label: 'Drawdown', value: '0.0%', detail: 'Healthy', accent: stoicBlue),
+            MetricCard(label: 'Win rate', value: '83%', detail: 'Last 20 trades', accent: stoicGold),
+            MetricCard(label: 'Profit', value: '3.20R', detail: 'Risk adjusted', accent: stoicBlue),
           ]),
           const SizedBox(height: 16),
           Panel(
             title: 'Performance',
-            trailing: const ChartRangeTabs(),
-            child: SizedBox(height: 190, child: PerformanceChart()),
+            trailing: ChartRangeTabs(selected: _range, onChanged: (value) => setState(() => _range = value)),
+            child: SizedBox(height: 190, child: PerformanceChart(range: _range)),
           ),
+          const SizedBox(height: 16),
+          Panel(title: 'Market pulse • ${_pulse.symbol}', child: Row(children: [
+            Text(_pulse.price.toStringAsFixed(2), style: const TextStyle(color: stoicGold, fontWeight: FontWeight.w800, fontSize: 24)),
+            const SizedBox(width: 12),
+            Text('${_pulse.change >= 0 ? '+' : ''}${_pulse.change.toStringAsFixed(2)}%', style: TextStyle(color: _pulse.change >= 0 ? Colors.green : Colors.red, fontWeight: FontWeight.w700)),
+          ])),
           const SizedBox(height: 16),
           const Panel(
             title: 'Discipline status',
@@ -379,18 +449,40 @@ class TradeRow extends StatelessWidget {
 }
 
 class ChartRangeTabs extends StatelessWidget {
-  const ChartRangeTabs({super.key});
+  final int selected;
+  final ValueChanged<int> onChanged;
+
+  const ChartRangeTabs({required this.selected, required this.onChanged, super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Text('Today  1W  1M', style: TextStyle(color: stoicBlue, fontWeight: FontWeight.w700, fontSize: 12));
+    return ToggleButtons(
+      isSelected: [selected == 0, selected == 1, selected == 2],
+      onPressed: onChanged,
+      borderRadius: BorderRadius.circular(8),
+      selectedColor: stoicDark,
+      fillColor: stoicGold,
+      color: stoicMuted,
+      constraints: const BoxConstraints(minWidth: 42, minHeight: 30),
+      children: const [Text('1D', style: TextStyle(fontSize: 11)), Text('1W', style: TextStyle(fontSize: 11)), Text('1M', style: TextStyle(fontSize: 11))],
+    );
   }
 }
 
 class PerformanceChart extends StatelessWidget {
-  PerformanceChart({super.key});
+  final int range;
 
-  final spots = const [FlSpot(0, 28), FlSpot(1, 31), FlSpot(2, 29), FlSpot(3, 38), FlSpot(4, 36), FlSpot(5, 48), FlSpot(6, 53)];
+  PerformanceChart({required this.range, super.key});
+
+  List<FlSpot> get spots => [
+        const FlSpot(0, 28),
+        FlSpot(1, 31 + range * 2),
+        FlSpot(2, 29 + range * 4),
+        FlSpot(3, 38 + range * 3),
+        FlSpot(4, 36 + range * 5),
+        FlSpot(5, 48 + range * 4),
+        FlSpot(6, 53 + range * 7),
+      ];
 
   @override
   Widget build(BuildContext context) {
